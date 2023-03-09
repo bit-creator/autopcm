@@ -1,0 +1,79 @@
+{
+    // example settings file for autopcm
+    
+    // work enough good only with clang
+    "compiler": "clang++",
+
+    // minimal requires c++20
+    "standart": 20,
+    "stdlib"  : "libc++",
+
+    // Debug means -g3 or Release means -O3 
+    // or set this line empty and specify custom flags
+    // in "flags" field
+    "build"   : "Debug",
+
+    // default directory: ".build/"
+    // *.pcm files stored in "precompiled/" into build_directory
+    // *.o files stored in "bin/" into build_directory
+    // "cache/" into build_directory have clang cache files
+    "build_directory": ".build/",
+
+    // compiler options
+    "flags": [
+        "-fmodules",
+        "-Wall",
+        "-Wextra",
+        "-fmath-errno",
+        "-march=native",
+        "-ffast-math",
+        "-fcxx-exceptions"
+    ],
+
+    "targets" : [
+        {
+            // name of target
+            "name": "Main",
+            
+            // type of target has a 4 options: "Executable", "Shared", "Static" and "Header-only"
+            // you may use last one if you need only precompile headers without compilation and linking
+            "type": "Executable",
+            
+            // entry_point it a module or *.cpp file which import all another modules
+            "entry_point": "/home/user/Code/C++/VKEngine/src/main.cpp",
+            
+            // autopcm analize dependencies of modules recursively and read preambulas from all files
+            // in root_directory (or directories inside root_directory) 
+            "root_directory": [
+                "/home/user/Code/C++/VKEngine/src"
+            ],
+            
+            // this is a directory with modules used from this target but compiled in other place
+            // for example: some header only libs or some 3rd party precompiled modules
+            "extra_pcm_dir": [
+                "/home/user/Code/Python/extrapcm"
+            ],
+            
+            // in this case name of executable file
+            "output_name": "main",
+            
+            // in this case path to executable file
+            "output_path": "",
+            
+            // not work enough good reserved for future 
+            "sub_target" : [
+                "directory/something.json",
+                "Math"
+            ]
+        },
+        {
+            // good example for header only library like a math
+            "name": "Math",
+            "type": "Header-only",
+            "entry_point": "/home/user/Code/C++/Mathon/src/Math.cppm",
+            "root_directory": [
+                "/home/user/Code/C++/Mathon/src"
+            ]
+        }
+    ]
+}
