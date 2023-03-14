@@ -244,8 +244,14 @@ async def loop():
     while(is_repeat):
         for ref in global_references:
             global_references[ref].start_if_ready()
-        done, pending = await asyncio.wait(queue, return_when=asyncio.FIRST_COMPLETED)
-        queue = [x for x in queue if x not in done]
+            if not args.parallel:
+                for q in queue:
+                    await q
+
+        if args.parallel:
+            done, pending = await asyncio.wait(queue, return_when=asyncio.FIRST_COMPLETED)
+            queue = [x for x in queue if x not in done]
+
         is_repeat = False
         for target in settings['targets']:
             if global_references[target['name']].status != Status.Done:
