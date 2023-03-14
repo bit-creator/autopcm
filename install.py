@@ -1,7 +1,7 @@
 import sys
 import os
 
-file_path = 'autopcm.py'
+file_path = 'src/autopcm.py'
 exepath = "#!" + sys.executable + "\n"
 
 with open(file_path, 'r') as f:
@@ -17,6 +17,8 @@ if exepath != firstline:
 home_dir = os.environ.get('HOME')
 pwd_dir = os.environ.get('PWD')
 
-os.symlink(pwd_dir + "/autopcm.py", home_dir + "/bin/autopcm")
+if os.path.exists(home_dir + "/bin/autopcm"):
+    os.remove(home_dir + "/bin/autopcm")
+os.symlink(pwd_dir + "/src/autopcm.py", home_dir + "/bin/autopcm")
 
 
