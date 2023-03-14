@@ -174,13 +174,20 @@ class Module():
             stdout=asyncio.subprocess.PIPE,
             stderr=asyncio.subprocess.PIPE)
         out, err = await proc.communicate()
+        bar.message(out.decode().strip())
+        bar.message(err.decode().strip())
         bar.increment(self.name)
         self.status = Status.Precompiled
 
     async def compile(self):
         if self.type != 'Header-only':
-            proc = await asyncio.create_subprocess_exec(*compiler.compile(self.name, self.path))        
+            proc = await asyncio.create_subprocess_exec(
+                *compiler.compile(self.name, self.path),
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE)
             out, err = await proc.communicate()
+            bar.message(out.decode().strip())
+            bar.message(err.decode().strip())
             bar.increment2(self.path)
         self.status = Status.Done
 
@@ -212,6 +219,8 @@ class Module():
                     stdout=asyncio.subprocess.PIPE,
                     stderr=asyncio.subprocess.PIPE)        
             out, err = await proc.communicate()
+            bar.message(out.decode().strip())
+            bar.message(err.decode().strip())
 
 for target in settings['targets']:
     global_references[target['name']] = Module(global_pathes[target['name']])

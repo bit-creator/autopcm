@@ -44,11 +44,12 @@ class ProgressBar:
                 print('')
                 print('')
 
+        if len(str) == 0: return
         if str.find('\n') != -1:
             lines = str.split('\n')
             for line in lines:
                 simplemsg(line)
-        else: simplemsg(line)
+        else: simplemsg(str)
 
     def draw(self):
         self.current = time.perf_counter()
