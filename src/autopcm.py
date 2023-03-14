@@ -9,6 +9,7 @@ import json
 import sys
 from compiler_abstraction import Compiler_abstraction
 import argparse
+from collections import namedtuple
 
 global_references ={}
 global_pathes ={}
@@ -40,7 +41,10 @@ cmdline.add_argument('--clean', required=False, action='store_true', help="Clean
 args = cmdline.parse_args()
 settings = json.load(open(args.settings))
 compiler = Compiler_abstraction(settings)
-compiler_output=[]
+stdout =[]
+stderr =[]
+Output = namedtuple("Output", ["stdout", "stderr"])
+compiler_output=Output(stdout, stderr)
 
 # /todo: provide target to class which cpllect data of target(all in *json)
 
@@ -99,6 +103,7 @@ class Module():
 
         metadata = Utils.get_meta_data(self.path)
         self.name       = metadata.name
+        self.objname = self.name + '.o'
 
         for name in metadata.imports:
             if not Utils.ignore_module(name, compiler.ignore_list):
@@ -164,15 +169,18 @@ class Module():
             queue.append(task)
 
     async def precompile(self):
-        proc = await asyncio.create_subprocess_exec(*compiler.precompile(self.name, self.path))
-        compiler_output.extend(await proc.communicate())
+        proc = await asyncio.create_subprocess_exec(
+            *compiler.precompile(self.name, self.path),
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE)
+        out, err = await proc.communicate()
         bar.increment(self.name)
         self.status = Status.Precompiled
 
     async def compile(self):
         if self.type != 'Header-only':
-            proc = await asyncio.create_subprocess_exec(*compiler.compile(self.name, self.path))
-            compiler_output.extend(await proc.communicate())
+            proc = await asyncio.create_subprocess_exec(*compiler.compile(self.name, self.path))        
+            out, err = await proc.communicate()
             bar.increment2(self.path)
         self.status = Status.Done
 
@@ -186,14 +194,24 @@ class Module():
         
         if not isTarget: return
 
-
-        
         if self.type != 'Header-only':
             proc 
-            if self.type == "Executable":      proc = await asyncio.create_subprocess_exec(*compiler.link_executable(target))
-            if self.type == "Dynamic_library": proc = await asyncio.create_subprocess_exec(*compiler.link_dynamic(target))
-            if self.type == "Static_library":  proc = await asyncio.create_subprocess_exec(*compiler.link_static(target))
-            compiler_output.extend(await proc.communicate())
+            if self.type == "Executable":     
+                proc = await asyncio.create_subprocess_exec(
+                    *compiler.link_executable(target),
+                    stdout=asyncio.subprocess.PIPE,
+                    stderr=asyncio.subprocess.PIPE)
+            if self.type == "Dynamic_library":
+                proc = await asyncio.create_subprocess_exec(
+                    *compiler.link_dynamic(target),
+                    stdout=asyncio.subprocess.PIPE,
+                    stderr=asyncio.subprocess.PIPE)
+            if self.type == "Static_library": 
+                proc = await asyncio.create_subprocess_exec(
+                    *compiler.link_static(target),
+                    stdout=asyncio.subprocess.PIPE,
+                    stderr=asyncio.subprocess.PIPE)        
+            out, err = await proc.communicate()
 
 for target in settings['targets']:
     global_references[target['name']] = Module(global_pathes[target['name']])
@@ -225,13 +243,17 @@ async def loop():
                 is_repeat = True
             else:
                 if target['type'] != "Header-only":
-                    if target['type'] == "Executable":      compiler.link_executable(target)
+                    if target['type'] == "Executable":
+                        obj = [global_references[target['name']].objname]
+                        dep = global_references[target['name']]
+                        def allobj(obj, dep):
+                            for d in dep.dependency:
+                                allobj(obj, d)
+                                obj.append(d.objname)
+                        allobj(obj, dep)
+                        compiler.link_executable(target, obj)
                     if target['type'] == "Dynamic_library": compiler.link_dynamic(target)
                     if target['type'] == "Static_library":  compiler.link_static(target)
-    
-    for out in compiler_output:
-        if out != None: print(out)
-            
 
 async def main():
     task1 = asyncio.create_task(bar.launch())

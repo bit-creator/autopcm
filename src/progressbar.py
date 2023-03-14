@@ -31,6 +31,11 @@ class ProgressBar:
         self.path = path
         self.progress2 = self.progress2 + 1
 
+    def message(self, str):
+        print(self.multiplier * ("\033[A") + "\033[A" +str + (self.length - len(str)) * " ")
+        print('')
+        print('')
+
     def draw(self):
         self.current = time.perf_counter()
         fill = self.length if self.size == 0 else int((self.progress * self.length) / self.size)
