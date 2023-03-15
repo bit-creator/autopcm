@@ -1,7 +1,6 @@
 #!/usr/local/bin/python3.9
 import asyncio
 from helpers import Status
-from helpers import GlobInfo
 import helpers as Utils
 import os
 import progressbar
@@ -13,9 +12,6 @@ from collections import namedtuple
 import subprocess
 
 global_references ={}
-global_pathes ={}
-linkage_lists ={}
-extra_cpp_files = []
 queue = []
 compiling = 0
 precompiling = 0
@@ -54,87 +50,39 @@ if args.clean:
 
 # /todo: provide target to class which cpllect data of target(all in *json)
 
-def init_global_metadata(root, type, target):
+def init_global_metadata(root, target, type):
     for name in os.listdir(root):
         path = os.path.join(root, name)
         if os.path.isfile(path):
-            metadata = Utils.get_meta_data(path)
-            if metadata.type != Utils.FileType.ExtraCxx:
-                glob_metadata_list[metadata.name] = metadata
-            else: glob_extra_cpp_list.append(metadata)
-        else: init_global_metadata(path, type, target)
-
-
-def init_global_pathes(root, type, target):
-        for name in os.listdir(root):
-            path = os.path.join(root, name)
-            if os.path.isfile(path):
-                if path[path.rindex('.'):] == '.cpp':
-                    input = open(path)
-                    isImplUnit = False
-                    for line in input.readlines():
-                        if line.find('module') != -1:
-                            isImplUnit = True
-                            module = Utils.name_of_impl(line)
-                            if module != 'invalid':
-                                if module in global_pathes.keys(): global_pathes[module].add_path(path)
-                                else: global_pathes[module] = GlobInfo(path, type, target)
-                            else: extra_cpp_files.extend(GlobInfo(path, type, target))
-                            break
-                    if not isImplUnit: extra_cpp_files.extend(GlobInfo(path, type, target))
-                if path[path.rindex('.'):] == '.cppm':
-                    input = open(path)
-                    for line in input.readlines():
-                        if line.find('export module') != -1:
-                            module = Utils.name_of_module(line)
-                            if module != 'invalid':
-                                if module in global_pathes.keys(): global_pathes[module].add_path(path)
-                                else: global_pathes[module] = GlobInfo(path, type, target)
-                            break
-            else: init_global_pathes(path, type, target)
+            if path[path.rindex('.'):] == ".cppm"\
+            or path[path.rindex('.'):] == ".cpp":
+                metadata = Utils.get_meta_data(path)
+                if metadata.type != Utils.FileType.ExtraCxx:
+                    metadata.target_t = type
+                    metadata.target = target
+                    glob_metadata_list[metadata.name] = metadata
+                else: glob_extra_cpp_list.append(metadata)
+        else: init_global_metadata(path, target, type)
 
 for target in settings['targets']:
-    global_pathes[target['name']] = GlobInfo(target['entry_point'], target['type'], target['name'])
-
     for root in target['root_directory']:
-        init_global_pathes(root, target['type'], target['name'])
+        init_global_metadata(root, target["name"], target["type"])
 
 class Module():
-    def __init__(self, info) -> None:
-        self.path = info.path[0]
-        self.type = info.type
-        self.target = info.target
+    def __init__(self, meta) -> None:
+        self.path = meta.path
+        self.type = meta.target_t
+        self.target = meta.target
         self.status = Status.Undefined
+        self.name       = meta.name
+        self.objname = self.name + '.o'
         self.dependency =[]
 
-        metadata = Utils.get_meta_data(self.path)
-        self.name       = metadata.name
-        self.objname = self.name + '.o'
-
-        for name in metadata.imports:
+        for name in meta.imports:
             if not Utils.ignore_module(name, compiler.ignore_list):
                 if not name in global_references:
-                    global_references[name] = Module(global_pathes[name])
-                self.dependency.append(global_references[name])
-    
-        # print(Utils.get_meta_data(self.path).__dict__)
-
-
-        
-        # input = open(self.path)
-
-        # for line in input.readlines():
-        #     if line.find('export module') != -1:
-        #         self.name = Utils.name_of_module(line)
-                
-        #     if line.find('import') != -1:
-        #         name = Utils.name_of_import(line)
-        #         if name == 'invalid': print('line contained uncorect import' , line)
-        #         else:
-        #             if not Utils.ignore_module(name, compiler.ignore_list):
-        #                 if not name in global_references:
-        #                     global_references[name] = Module(global_pathes[name])
-        #                 self.dependency.append(global_references[name])
+                    global_references[name] = Module(glob_metadata_list[name])
+                self.dependency.append(global_references[name])    
             
     def update_existed(self):
         for dep in self.dependency:
@@ -229,7 +177,7 @@ class Module():
             bar.message(err.decode().strip())
 
 for target in settings['targets']:
-    global_references[target['name']] = Module(global_pathes[target['name']])
+    global_references[target['name']] = Module(Utils.get_meta_data(target["entry_point"]))
     if not args.rebuild: global_references[target['name']].update_existed()
 
 for ref in global_references:

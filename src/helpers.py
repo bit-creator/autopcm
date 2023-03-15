@@ -17,22 +17,14 @@ class Errors(Enum):
     UnknownError = auto() # unrecognized error
     InvalidName  = auto() # some name of module is invalid
 
-class GlobInfo():
-    def __init__(self, path, type, target):
-        self.path = [path]
-        self.type = type
-        self.target = target
-
-    def add_path(self, path):
-        self.path.append(path)
-
 class ModuleMetaInfo():
     def __init__(self):
-        self.name    ="" # Name of module
-        self.path    ="" # path to module source
-        self.type    ="" # type of file, looks to FileType enum
-        self.target  ="" # targets specified in *json for build control
-        self.imports =[] # list of module which imported
+        self.name     ="" # Name of module
+        self.path     ="" # path to module source
+        self.type     ="" # type of file, looks to FileType enum
+        self.target   ="" # targets specified in *json for build control
+        self.target_t ="" # type of target like header-only executable etc
+        self.imports  =[] # list of module which imported
 
 class MetaDataDump():
     def __init__(self):
@@ -153,7 +145,7 @@ def update_meta_data(data, line):
         if line.find("module ") != -1:
             name = name_of_impl(line)
             if name != "invalid":
-                data.type = FileType.ModuleDefinition
+                data.type = FileType.ModuleImplimentation
                 data.name = name
             else: Error(Errors.InvalidName, line)
 
@@ -163,9 +155,9 @@ def get_meta_data(file):
     current.file = file
     data = ModuleMetaInfo()
     data.path = file
-    if file[file.rindex('.'):] == "*cppm":
+    if file[file.rindex('.'):] == ".cppm":
         data.type = FileType.ModuleDefinition
-    elif file[file.rindex('.'):] == "*cpp":
+    elif file[file.rindex('.'):] == ".cpp":
         data.type = FileType.ExtraCxx
     preambula_end = False
     is_comment_line = False
