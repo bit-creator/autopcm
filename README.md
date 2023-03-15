@@ -81,9 +81,9 @@ for build control your may use next flags:
 
 ```--output OUTPUT```           File for compiler output [not supported]
 
-```--rebuild```                 Boolean flag indicate full rebuild [not supported]
+```--rebuild```                 Boolean flag indicate full rebuild
 
-```--clean```                   Clean build files [not supported]
+```--clean```                   Clean build files [experimental support]
 
 ## Contributing <a name = "Contributing"></a>
 

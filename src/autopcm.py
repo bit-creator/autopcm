@@ -10,6 +10,7 @@ import sys
 from compiler_abstraction import Compiler_abstraction
 import argparse
 from collections import namedtuple
+import subprocess
 
 global_references ={}
 global_pathes ={}
@@ -36,7 +37,7 @@ else:
     cmdline.add_argument('--no-parallel', required=False, action='store_true', default=False, help="disable multithread build process")
 
 cmdline.add_argument('--rebuild', required=False, action='store_true', help="Boolean flag indicate full rebuild")
-cmdline.add_argument('--clean', required=False, action='store_true', help="Clean build files [not supported]")
+cmdline.add_argument('--clean', required=False, action='store_true', help="Clean build files [experimental support]")
 
 args = cmdline.parse_args()
 settings = json.load(open(args.settings))
@@ -45,6 +46,11 @@ stdout =[]
 stderr =[]
 Output = namedtuple("Output", ["stdout", "stderr"])
 compiler_output=Output(stdout, stderr)
+
+if args.clean:
+    if os.path.exists(settings["build_directory"]):
+        subprocess.run(['rm', '-rf', settings["build_directory"]])
+    exit()
 
 # /todo: provide target to class which cpllect data of target(all in *json)
 
