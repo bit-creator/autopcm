@@ -35,7 +35,7 @@ else:
     cmdline.add_argument('--parallel', required=False, action='store_true', default=True, help="enable multithread build process")
     cmdline.add_argument('--no-parallel', required=False, action='store_true', default=False, help="disable multithread build process")
 
-cmdline.add_argument('--rebuild', required=False, action='store_true', help="Boolean flag indicate full rebuild [not supported]")
+cmdline.add_argument('--rebuild', required=False, action='store_true', help="Boolean flag indicate full rebuild")
 cmdline.add_argument('--clean', required=False, action='store_true', help="Clean build files [not supported]")
 
 args = cmdline.parse_args()
@@ -224,7 +224,7 @@ class Module():
 
 for target in settings['targets']:
     global_references[target['name']] = Module(global_pathes[target['name']])
-    global_references[target['name']].update_existed()
+    if not args.rebuild: global_references[target['name']].update_existed()
 
 for ref in global_references:
     if global_references[ref].status != Status.Done:
