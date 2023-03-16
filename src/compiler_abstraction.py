@@ -71,6 +71,8 @@ class Compiler_abstraction:
 
     def link_executable(self, target, obj):
         output_path = target['output_path']
+        if not len(output_path) > 0:
+            output_path = '.'
         if output_path[-1] != '/': output_path += '/'
         output_name = target['output_name']
         call = [*self.static_line]

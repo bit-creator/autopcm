@@ -21,7 +21,7 @@
 - [Getting Started](#getting_started)
 - [Usage](#usage)
 - [Contributing](#contributing)
-- [Bug tracking](#bug-reports-and-feature-requests)
+- [Bug tracking](#bug_traking)
 - [License](#license)
 - [Conclusion](#conclusion)
 - [Authors](#authors)
@@ -81,9 +81,9 @@ for build control your may use next flags:
 
 ```--output OUTPUT```           File for compiler output [not supported]
 
-```--rebuild```                 Boolean flag indicate full rebuild [not supported]
+```--rebuild```                 Boolean flag indicate full rebuild
 
-```--clean```                   Clean build files [not supported]
+```--clean```                   Clean build files [experimental support]
 
 ## Contributing <a name = "Contributing"></a>
 
@@ -96,17 +96,17 @@ We welcome contributions from everyone, regardless of their experience level. To
 5. Push your changes to your forked repository
 6. Create a pull request
 
-Please make sure to read our CONTRIBUTING.md file before making any contributions.
+Please make sure to read our [CONTRIBUTING.md](https://github.com/bit-creator/autopcm/blob/master/CONTRIBUTING.md) file before making any contributions.
 
-## Bug reports and feature requests <a name = "Bug reports and feature requests"></a>
+## Bug reports and feature requests <a name = "bug_traking"></a>
 
 If you encounter any bugs or issues while using autopcm, please report them to us. You can create a new issue on our GitHub repository and provide as much information as possible about the issue. We also welcome feature requests and suggestions for improving the autopcm.
 
-## License <a name = "License"></a>
+## License <a name = "license"></a>
 
 Our project is licensed under the MIT License. This means that anyone can use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the software. Please read the LICENSE file for more information.
 
-## Conclusion <a name = "Conclusion"></a>
+## Conclusion <a name = "conclusion"></a>
 
 We appreciate your interest in our project and we look forward to working with you. If you have any questions or concerns, please don't hesitate to reach out to us. Together, we can create a great platform for managing tasks and projects.
 
