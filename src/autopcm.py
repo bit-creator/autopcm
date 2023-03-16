@@ -8,7 +8,6 @@ import json
 import sys
 from compiler_abstraction import Compiler_abstraction
 import argparse
-from collections import namedtuple
 import subprocess
 
 global_references ={}
@@ -17,64 +16,19 @@ compiling = 0
 precompiling = 0
 
 glob_metadata_list = {}
-glob_extra_cpp_list = []
-
-cmdline = argparse.ArgumentParser(prog="autopcm",
-                                  description="This utility analyse \
-                                  dependencies in your C++ modules and \
-                                  precompile with your own settings")
-
-cmdline.add_argument('--settings', required=True, help="*.json file with build configuration")
-cmdline.add_argument('--output', required=False, help="File for compiler output [not supported]")
-if sys.version_info >= (3, 9):
-    cmdline.add_argument('--parallel', required=False, action=argparse.BooleanOptionalAction, default=True, help="enable multithread build process")
-else: 
-    cmdline.add_argument('--parallel', required=False, action='store_true', default=True, help="enable multithread build process")
-    cmdline.add_argument('--no-parallel', required=False, action='store_true', default=False, help="disable multithread build process")
-
-cmdline.add_argument('--rebuild', required=False, action='store_true', help="Boolean flag indicate full rebuild")
-cmdline.add_argument('--clean', required=False, action='store_true', help="Clean build files [experimental support]")
-
-args = cmdline.parse_args()
-settings = json.load(open(args.settings))
-compiler = Compiler_abstraction(settings)
-stdout =[]
-stderr =[]
-Output = namedtuple("Output", ["stdout", "stderr"])
-compiler_output=Output(stdout, stderr)
-
-if args.clean:
-    if os.path.exists(settings["build_directory"]):
-        subprocess.run(['rm', '-rf', settings["build_directory"]])
-    exit()
 
 # /todo: provide target to class which cpllect data of target(all in *json)
-
-def init_global_metadata(root, target, type):
-    for name in os.listdir(root):
-        path = os.path.join(root, name)
-        if os.path.isfile(path):
-            if path[path.rindex('.'):] == ".cppm"\
-            or path[path.rindex('.'):] == ".cpp":
-                metadata = Utils.get_meta_data(path)
-                if metadata.type != Utils.FileType.ExtraCxx:
-                    metadata.target_t = type
-                    metadata.target = target
-                    glob_metadata_list[metadata.name] = metadata
-                else: glob_extra_cpp_list.append(metadata)
-        else: init_global_metadata(path, target, type)
-
-for target in settings['targets']:
-    for root in target['root_directory']:
-        init_global_metadata(root, target["name"], target["type"])
 
 class Module():
     def __init__(self, meta) -> None:
         self.path = meta.path
         self.type = meta.target_t
+        self.file_type = meta.type
         self.target = meta.target
         self.status = Status.Undefined
-        self.name       = meta.name
+        self.name = meta.name
+        # if self.file_type == Utils.FileType.ExtraCxx:
+        #     self.status = Status.Precompiled
         self.objname = self.name + '.o'
         self.dependency =[]
 
@@ -82,8 +36,8 @@ class Module():
             if not Utils.ignore_module(name, compiler.ignore_list):
                 if not name in global_references:
                     global_references[name] = Module(glob_metadata_list[name])
-                self.dependency.append(global_references[name])    
-            
+                self.dependency.append(global_references[name])
+
     def update_existed(self):
         for dep in self.dependency:
             dep.update_existed()
@@ -100,7 +54,6 @@ class Module():
                     obj_mod = os.path.getmtime(os.path.join(compiler.bin_directory, self.name + '.o'))
                     if obj_mod > origin_mod: self.status = Status.Done
             
-
     def start_if_ready(self):
         if self.status == Status.Precompiling: return
         if self.status == Status.Compiling:    return
@@ -176,21 +129,64 @@ class Module():
             bar.message(out.decode().strip())
             bar.message(err.decode().strip())
 
-for target in settings['targets']:
-    global_references[target['name']] = Module(Utils.get_meta_data(target["entry_point"]))
-    if not args.rebuild: global_references[target['name']].update_existed()
+def init_global_metadata(root, target, type):
+    for name in os.listdir(root):
+        path = os.path.join(root, name)
+        if os.path.isfile(path):
+            if path[path.rindex('.'):] == ".cppm"\
+            or path[path.rindex('.'):] == ".cpp":
+                metadata = Utils.get_meta_data(path)
+                metadata.target_t = type
+                metadata.target = target
+                if metadata.type != Utils.FileType.ExtraCxx:
+                    glob_metadata_list[metadata.name] = metadata
+        else: init_global_metadata(path, target, type)
 
-for ref in global_references:
-    if global_references[ref].status != Status.Done:
-        if global_references[ref].status != Status.Precompiled:
-            precompiling += 1
-        if global_references[ref].type != 'Header-only':
-            compiling += 1
+if __name__ == "__main__":
+    cmdline = argparse.ArgumentParser(prog="autopcm",
+                                      description="This utility analyse \
+                                      dependencies in your C++ modules and \
+                                      precompile with your own settings")
 
-print("nested pcm:", precompiling)
-print("nested obj:", compiling)
+    cmdline.add_argument('--settings', required=True, help="*.json file with build configuration")
+    cmdline.add_argument('--output', required=False, help="File for compiler output [not supported]")
+    if sys.version_info >= (3, 9):
+        cmdline.add_argument('--parallel', required=False, action=argparse.BooleanOptionalAction, default=True, help="enable multithread build process")
+    else:
+        cmdline.add_argument('--parallel', required=False, action='store_true', default=True, help="enable multithread build process")
+        cmdline.add_argument('--no-parallel', required=False, action='store_true', default=False, help="disable multithread build process")
 
-bar = progressbar.ProgressBar(precompiling, compiling)
+    cmdline.add_argument('--rebuild', required=False, action='store_true', help="Boolean flag indicate full rebuild")
+    cmdline.add_argument('--clean', required=False, action='store_true', help="Clean build files [experimental support]")
+
+    args = cmdline.parse_args()
+    settings = json.load(open(args.settings))
+    compiler = Compiler_abstraction(settings)
+
+    if args.clean:
+        if os.path.exists(settings["build_directory"]):
+            subprocess.run(['rm', '-rf', settings["build_directory"]])
+        exit()
+
+    for target in settings['targets']:
+        for root in target['root_directory']:
+            init_global_metadata(root, target["name"], target["type"])
+
+    for target in settings['targets']:
+        global_references[target['name']] = Module(Utils.get_meta_data(target["entry_point"]))
+        if not args.rebuild: global_references[target['name']].update_existed()
+
+    for ref in global_references:
+        if global_references[ref].status != Status.Done:
+            if global_references[ref].status != Status.Precompiled:
+                precompiling += 1
+            if global_references[ref].type != 'Header-only':
+                compiling += 1
+
+    print("nested pcm:", precompiling)
+    print("nested obj:", compiling)
+
+    bar = progressbar.ProgressBar(precompiling, compiling)
 
 async def loop():
     global queue

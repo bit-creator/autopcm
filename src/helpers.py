@@ -159,6 +159,7 @@ def get_meta_data(file):
         data.type = FileType.ModuleDefinition
     elif file[file.rindex('.'):] == ".cpp":
         data.type = FileType.ExtraCxx
+        data.name = file[file.rindex('/') + 1:file.rindex('.')]
     preambula_end = False
     is_comment_line = False
     while not preambula_end:
