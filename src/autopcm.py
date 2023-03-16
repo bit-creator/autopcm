@@ -27,8 +27,8 @@ class Module():
         self.target = meta.target
         self.status = Status.Undefined
         self.name = meta.name
-        # if self.file_type == Utils.FileType.ExtraCxx:
-        #     self.status = Status.Precompiled
+        if self.file_type == Utils.FileType.ExtraCxx:
+            self.status = Status.Precompiled
         self.objname = self.name + '.o'
         self.dependency =[]
 
@@ -58,7 +58,20 @@ class Module():
         if self.status == Status.Precompiling: return
         if self.status == Status.Compiling:    return
         if self.status == Status.Done:         return
-        if self.status == Status.Precompiled:
+
+        if self.file_type == Utils.FileType.ExtraCxx:
+            ready = True
+            for depend in self.dependency:
+                if not (depend.status == Status.Precompiled\
+                or depend.status == Status.Compiling\
+                or depend.status == Status.Done):
+                    ready = False
+            if ready:
+                self.status = Status.Compiling
+                task = asyncio.create_task(self.compile())
+                queue.append(task)
+            return
+        elif self.status == Status.Precompiled:
             self.status = Status.Compiling
             task = asyncio.create_task(self.compile())
             queue.append(task)
