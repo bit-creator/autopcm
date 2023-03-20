@@ -111,37 +111,6 @@ class Module():
             bar.increment2(self.path)
         self.status = Status.Done
 
-    async def link(self):
-        isTarget = False
-
-        for target in settings['targets']:
-            if target['name'] == self.name:
-                isTarget = True
-                break
-        
-        if not isTarget: return
-
-        if self.type != 'Header-only':
-            proc 
-            if self.type == "Executable":     
-                proc = await asyncio.create_subprocess_exec(
-                    *compiler.link_executable(target),
-                    stdout=asyncio.subprocess.PIPE,
-                    stderr=asyncio.subprocess.PIPE)
-            if self.type == "Dynamic_library":
-                proc = await asyncio.create_subprocess_exec(
-                    *compiler.link_dynamic(target),
-                    stdout=asyncio.subprocess.PIPE,
-                    stderr=asyncio.subprocess.PIPE)
-            if self.type == "Static_library": 
-                proc = await asyncio.create_subprocess_exec(
-                    *compiler.link_static(target),
-                    stdout=asyncio.subprocess.PIPE,
-                    stderr=asyncio.subprocess.PIPE)        
-            out, err = await proc.communicate()
-            bar.message(out.decode().strip())
-            bar.message(err.decode().strip())
-
 def init_global_metadata(root, target, type):
     for name in os.listdir(root):
         path = os.path.join(root, name)
@@ -187,6 +156,7 @@ if __name__ == "__main__":
 
     for target in settings['targets']:
         global_references[target['name']] = Module(Utils.get_meta_data(target["entry_point"]))
+        global_references[target['name']].target = target['name']
         if not args.rebuild: global_references[target['name']].update_existed()
 
     for ref in global_references:
@@ -222,14 +192,17 @@ async def loop():
             else:
                 if target['type'] != "Header-only":
                     if target['type'] == "Executable":
-                        obj = [global_references[target['name']].objname]
-                        dep = global_references[target['name']]
-                        def allobj(obj, dep):
-                            for d in dep.dependency:
-                                allobj(obj, d)
-                                obj.append(d.objname)
-                        allobj(obj, dep)
-                        compiler.link_executable(target, obj)
+                        obj = []
+                        for name, ref in global_references.items():
+                            if ref.target == target['name']:
+                                obj.append(ref.objname)
+                        proc = await asyncio.create_subprocess_exec(
+                            *compiler.link_executable(target, obj),
+                        stdout=asyncio.subprocess.PIPE,
+                        stderr=asyncio.subprocess.PIPE)
+                        out, err = await proc.communicate()
+                        bar.message(out.decode().strip())
+                        bar.message(err.decode().strip())
                     if target['type'] == "Dynamic_library": compiler.link_dynamic(target)
                     if target['type'] == "Static_library":  compiler.link_static(target)
 

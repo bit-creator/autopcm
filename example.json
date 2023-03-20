@@ -47,6 +47,12 @@
             "root_directory": [
                 "/home/user/Code/C++/VKEngine/src"
             ],
+
+            // list of libraries for linking
+            "link_libraries": [
+                "vulkan",
+                "glfw"
+            ],
             
             // this is a directory with modules used from this target but compiled in other place
             // for example: some header only libs or some 3rd party precompiled modules

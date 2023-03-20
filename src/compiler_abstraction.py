@@ -76,7 +76,11 @@ class Compiler_abstraction:
         if output_path[-1] != '/': output_path += '/'
         output_name = target['output_name']
         call = [*self.static_line]
+        libraries = target['link_libraries']
+        libraries = ["-l" + l for l in libraries]
+        obj = [self.bin_directory + o for o in obj]
 
         call.extend([
-            '-o', output_path + output_name, *obj
+            *libraries, *obj, '-o', output_path + output_name
         ])
+        return call
