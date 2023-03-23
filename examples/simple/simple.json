@@ -1,0 +1,21 @@
+{
+    "compiler": "clang++",
+    "standart": 20,
+    "stdlib"  : "libc++",
+    "build"   : "Debug",
+    "build_directory": ".build/",
+    "flags": [
+        "-fmodules",
+        "-Wall",
+        "-Wextra"
+    ],
+
+    "targets" : [{
+        "name": "Simple",
+        "type": "Executable",
+        "entry_point": "./main.cpp",
+        "root_directory": ["."],
+        "output_name": "simple",
+        "output_path": ""
+    }]
+}

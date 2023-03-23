@@ -22,6 +22,7 @@ class Compiler_abstraction:
             '-std=c++' + str(settings['standart']),
             '-stdlib=' + settings['stdlib'],
             '-g3' if settings['build'] == 'Debug' else '-O3',
+            '-fmodules'
         ]
 
         self.static_line.extend(settings['flags'])
@@ -53,8 +54,9 @@ class Compiler_abstraction:
 
         return call
 
-    def compile(self, module, module_path):
+    def compile(self, module, module_path, no_import=False):
         call = [*self.static_line]
+        if no_import: call.remove('-fmodules')
 
         call.extend([
             '-c', module_path, '-o', self.bin_directory +
@@ -76,7 +78,13 @@ class Compiler_abstraction:
         if output_path[-1] != '/': output_path += '/'
         output_name = target['output_name']
         call = [*self.static_line]
+        libraries =[]
+        if 'link_libraries' in target:
+            libraries = target['link_libraries']
+            libraries = ["-l" + l for l in libraries]
 
         call.extend([
-            '-o', output_path + output_name, *obj
+            *libraries, *obj, '-o', output_path + output_name
         ])
+
+        return call
