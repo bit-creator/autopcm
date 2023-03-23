@@ -28,66 +28,59 @@ class Module():
         self.target = meta.target
         self.status = Status.Undefined
         self.name = meta.name
-        if self.file_type >= Utils.FileType.ExtraCxx:
-            self.status = Status.Precompiled
-        self.objname = self.name + '.o'
         self.dependency =[]
 
+        if self.file_type >= Utils.FileType.ExtraCxx:
+            self.status = Status.Precompiled
+
         for name in meta.imports:
-            if not Utils.ignore_module(name, compiler.ignore_list):
-                if not name in global_references:
-                    global_references[name] = Module(glob_metadata_list[name])
-                self.dependency.append(global_references[name])
+            if Utils.ignore_module(name, compiler.ignore_list):
+                continue
+
+            if name not in global_references:
+                global_references[name] = Module(glob_metadata_list[name])
+
+            self.dependency.append(global_references[name])
+
 
     def update_existed(self):
         for dep in self.dependency:
             dep.update_existed()
-        all_dependency_ready = True
-        for dep in self.dependency:
-            if not (dep.status == Status.Precompiled or dep.status == Status.Done): 
-                all_dependency_ready = False
-        if all_dependency_ready:
-            if os.path.exists(os.path.join(compiler.prebuild_directory, self.name + '.pcm')):
-                pcm_mod = os.path.getmtime(os.path.join(compiler.prebuild_directory, self.name + '.pcm'))
+        if all(dep.status in (Status.Precompiled, Status.Done) for dep in self.dependency):
+            pcm_file_path = os.path.join(compiler.prebuild_directory, self.name + '.pcm')
+            obj_file_path = os.path.join(compiler.bin_directory, self.name + '.o')
+            if os.path.exists(pcm_file_path):
+                pcm_mod = os.path.getmtime(pcm_file_path)
                 origin_mod = os.path.getmtime(self.path)
-                if pcm_mod > origin_mod: self.status = Status.Precompiled
-                if os.path.exists(os.path.join(compiler.bin_directory, self.name + '.o')):
-                    obj_mod = os.path.getmtime(os.path.join(compiler.bin_directory, self.name + '.o'))
-                    if obj_mod > origin_mod: self.status = Status.Done
+                if pcm_mod > origin_mod:
+                    self.status = Status.Precompiled
+            if os.path.exists(obj_file_path):
+                obj_mod = os.path.getmtime(obj_file_path)
+                origin_mod = os.path.getmtime(self.path)
+                if obj_mod > origin_mod:
+                    self.status = Status.Done
             
     def start_if_ready(self):
-        if self.status == Status.Precompiling: return
-        if self.status == Status.Compiling:    return
-        if self.status == Status.Done:         return
+        if self.status in (Status.Precompiling, Status.Compiling, Status.Done):
+            return
 
         if self.file_type >= Utils.FileType.ExtraCxx:
-            ready = True
-            for depend in self.dependency:
-                if not (depend.status == Status.Precompiled\
-                or depend.status == Status.Compiling\
-                or depend.status == Status.Done):
-                    ready = False
-            if ready:
+            if all(depend.status in (Status.Precompiled, Status.Compiling, Status.Done) \
+                   for depend in self.dependency):
                 self.status = Status.Compiling
                 task = asyncio.create_task(self.compile())
                 queue.append(task)
-            return
         elif self.status == Status.Precompiled:
             self.status = Status.Compiling
             task = asyncio.create_task(self.compile())
             queue.append(task)
-            return
+        else:
+            if all(depend.status in (Status.Precompiled, Status.Compiling, Status.Done) \
+                   for depend in self.dependency):
+                self.status = Status.Precompiling
+                task = asyncio.create_task(self.precompile())
+                queue.append(task)
 
-        ready = True
-        for depend in self.dependency:
-            if not (depend.status == Status.Precompiled\
-            or depend.status == Status.Compiling\
-            or depend.status == Status.Done):
-                ready = False
-        if ready:
-            self.status = Status.Precompiling
-            task = asyncio.create_task(self.precompile())
-            queue.append(task)
 
     async def precompile(self):
         proc = await asyncio.create_subprocess_exec(
@@ -101,11 +94,10 @@ class Module():
         self.status = Status.Precompiled
 
     async def compile(self):
-        no_import =False
-        if self.file_type == Utils.FileType.PureCxx: no_import =True
         if self.type != 'Header-only':
             proc = await asyncio.create_subprocess_exec(
-                *compiler.compile(self.name, self.path, no_import),
+                *compiler.compile(self.name, self.path, \
+                                  self.file_type == Utils.FileType.PureCxx),
             stdout=asyncio.subprocess.PIPE,
             stderr=asyncio.subprocess.PIPE)
             out, err = await proc.communicate()
@@ -117,15 +109,12 @@ class Module():
 def init_global_metadata(root, target, type):
     for name in os.listdir(root):
         path = os.path.join(root, name)
-        if os.path.isfile(path):
-            if path[path.rindex('.'):] == ".cppm"\
-            or path[path.rindex('.'):] == ".cpp":
-                metadata = Utils.get_meta_data(path)
-                metadata.target_t = type
-                metadata.target = target
-                # if metadata.type != Utils.FileType.ExtraCxx:
-                glob_metadata_list[metadata.name] = metadata
-        else: init_global_metadata(path, target, type)
+
+        if not os.path.isfile(path):
+            init_global_metadata(path, target, type)
+        elif path.endswith(".cppm") or path.endswith(".cpp"):
+            metadata = Utils.get_meta_data(path, target, type)
+            glob_metadata_list[metadata.name] = metadata
 
 if __name__ == "__main__":
     cmdline = argparse.ArgumentParser(prog="autopcm",
@@ -158,25 +147,21 @@ if __name__ == "__main__":
             init_global_metadata(root, target["name"], target["type"])
 
     for target in settings['targets']:
-        global_references[target['name']] = Module(Utils.get_meta_data(target["entry_point"]))
-        global_references[target['name']].target = target['name']
-        global_references[target['name']].target_t = target['type']
+        global_references[target['name']] = \
+            Module(Utils.get_meta_data(target["entry_point"], target['name'], target['type']))
 
     glob_metadata_list_tmp = glob_metadata_list.copy()
-    if len(glob_metadata_list) != 0:
-        for name, md in glob_metadata_list_tmp.items():
-            if md.type >= Utils.FileType.ExtraCxx:
-                global_references[name] = Module(md)
+    for name, md in glob_metadata_list_tmp.items():
+        if md.type >= Utils.FileType.ExtraCxx:
+            global_references[name] = Module(md)
 
     for target in settings['targets']:
         if not args.rebuild: global_references[target['name']].update_existed()
 
-    for ref in global_references:
-        if global_references[ref].status != Status.Done:
-            if global_references[ref].status != Status.Precompiled:
-                precompiling += 1
-            if global_references[ref].type != 'Header-only':
-                compiling += 1
+    precompiling = sum(1 for ref in global_references.values() \
+                       if ref.status not in (Status.Done, Status.Precompiled))
+    compiling = sum(1 for ref in global_references.values() \
+                    if ref.status is not Status.Done and ref.type != 'Header-only')
 
     print("nested pcm:", precompiling)
     print("nested obj:", compiling)
@@ -207,7 +192,7 @@ async def loop():
                         obj = []
                         for name, ref in global_references.items():
                             if ref.target == target['name']:
-                                obj.append(compiler.bin_directory + ref.objname)
+                                obj.append(compiler.bin_directory + ref.name + '.o')
                         proc = await asyncio.create_subprocess_exec(
                             *compiler.link_executable(target, obj),
                         stdout=asyncio.subprocess.PIPE,

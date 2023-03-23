@@ -1,6 +1,6 @@
 from enum import IntEnum, Enum, auto
 
-class Status(Enum):
+class Status(IntEnum):
     Undefined    = auto() # status unknown
     Located      = auto() # modules inserted in tree
     Precompiling = auto() # modules under precompilation process
@@ -107,16 +107,11 @@ def name_of_impl(string):
     return name
 
 def ignore_module(module, ignore_list):
-    for mod in ignore_list:
-        if module == mod:
-            return True
-    
-    if module.find('<') != -1:
-        return True
-    if module.find('std') != -1:
-        return True
+    return module in ignore_list \
+        or '<' in module \
+        or 'std' in module
 
-end_preambula_flags = [
+END_PREAMBULA_FLAGS = [
     "(", "{", "using=", "using ", "class ",
     "template ", "template<", "namespace ",
     "typedef ", "static ", "constexpr ",
@@ -124,10 +119,9 @@ end_preambula_flags = [
 ]
 
 def is_preambula_end(line):
-    if line == "": return False
-    for flag in end_preambula_flags:
-        if line.find(flag) != -1: return True
-    return False
+    if not line:
+        return False
+    return any(flag in line for flag in END_PREAMBULA_FLAGS)
 
 def update_meta_data(data, line):
     if line.find("import ") != -1:
@@ -152,15 +146,15 @@ def update_meta_data(data, line):
                 data.name = name
             else: Error(Errors.InvalidName, line)
 
-def get_meta_data(file):
+def get_meta_data(file, target, type):
     global current
     input = open(file, "r")
     current.file = file
     data = ModuleMetaInfo()
     data.path = file
-    if file[file.rindex('.'):] == ".cppm":
+    if file.endswith(".cppm"):
         data.type = FileType.ModuleDefinition
-    elif file[file.rindex('.'):] == ".cpp":
+    elif file.endswith(".cpp"):
         data.type = FileType.PureCxx
         data.name = file[file.rindex('/') + 1:file.rindex('.')]
     preambula_end = False
@@ -184,4 +178,6 @@ def get_meta_data(file):
         if is_comment_line: continue
         if not is_preambula_end(line): update_meta_data(data, line)
         else: preambula_end = True
+    data.target = target
+    data.target_t = type
     return data

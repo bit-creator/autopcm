@@ -78,8 +78,10 @@ class Compiler_abstraction:
         if output_path[-1] != '/': output_path += '/'
         output_name = target['output_name']
         call = [*self.static_line]
-        libraries = target['link_libraries']
-        libraries = ["-l" + l for l in libraries]
+        libraries =[]
+        if 'link_libraries' in target:
+            libraries = target['link_libraries']
+            libraries = ["-l" + l for l in libraries]
 
         call.extend([
             *libraries, *obj, '-o', output_path + output_name
