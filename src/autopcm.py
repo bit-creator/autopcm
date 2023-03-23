@@ -21,13 +21,14 @@ glob_metadata_list = {}
 
 class Module():
     def __init__(self, meta) -> None:
+        glob_metadata_list.pop(meta.name)
         self.path = meta.path
         self.type = meta.target_t
         self.file_type = meta.type
         self.target = meta.target
         self.status = Status.Undefined
         self.name = meta.name
-        if self.file_type == Utils.FileType.ExtraCxx:
+        if self.file_type >= Utils.FileType.ExtraCxx:
             self.status = Status.Precompiled
         self.objname = self.name + '.o'
         self.dependency =[]
@@ -59,7 +60,7 @@ class Module():
         if self.status == Status.Compiling:    return
         if self.status == Status.Done:         return
 
-        if self.file_type == Utils.FileType.ExtraCxx:
+        if self.file_type >= Utils.FileType.ExtraCxx:
             ready = True
             for depend in self.dependency:
                 if not (depend.status == Status.Precompiled\
@@ -100,9 +101,11 @@ class Module():
         self.status = Status.Precompiled
 
     async def compile(self):
+        no_import =False
+        if self.file_type == Utils.FileType.PureCxx: no_import =True
         if self.type != 'Header-only':
             proc = await asyncio.create_subprocess_exec(
-                *compiler.compile(self.name, self.path),
+                *compiler.compile(self.name, self.path, no_import),
             stdout=asyncio.subprocess.PIPE,
             stderr=asyncio.subprocess.PIPE)
             out, err = await proc.communicate()
@@ -120,8 +123,8 @@ def init_global_metadata(root, target, type):
                 metadata = Utils.get_meta_data(path)
                 metadata.target_t = type
                 metadata.target = target
-                if metadata.type != Utils.FileType.ExtraCxx:
-                    glob_metadata_list[metadata.name] = metadata
+                # if metadata.type != Utils.FileType.ExtraCxx:
+                glob_metadata_list[metadata.name] = metadata
         else: init_global_metadata(path, target, type)
 
 if __name__ == "__main__":
@@ -157,6 +160,15 @@ if __name__ == "__main__":
     for target in settings['targets']:
         global_references[target['name']] = Module(Utils.get_meta_data(target["entry_point"]))
         global_references[target['name']].target = target['name']
+        global_references[target['name']].target_t = target['type']
+
+    glob_metadata_list_tmp = glob_metadata_list.copy()
+    if len(glob_metadata_list) != 0:
+        for name, md in glob_metadata_list_tmp.items():
+            if md.type >= Utils.FileType.ExtraCxx:
+                global_references[name] = Module(md)
+
+    for target in settings['targets']:
         if not args.rebuild: global_references[target['name']].update_existed()
 
     for ref in global_references:
@@ -195,7 +207,7 @@ async def loop():
                         obj = []
                         for name, ref in global_references.items():
                             if ref.target == target['name']:
-                                obj.append(ref.objname)
+                                obj.append(compiler.bin_directory + ref.objname)
                         proc = await asyncio.create_subprocess_exec(
                             *compiler.link_executable(target, obj),
                         stdout=asyncio.subprocess.PIPE,

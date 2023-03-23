@@ -1,4 +1,4 @@
-from enum import Enum, auto
+from enum import IntEnum, Enum, auto
 
 class Status(Enum):
     Undefined    = auto() # status unknown
@@ -8,10 +8,11 @@ class Status(Enum):
     Compiling    = auto() # module under compilation process
     Done         = auto() # module precompiled and compiled
 
-class FileType(Enum):
+class FileType(IntEnum):
     ModuleDefinition     = auto() # defenition of module
     ModuleImplimentation = auto() # module implimentation unit
     ExtraCxx             = auto() # not module file
+    PureCxx              = auto() # any imports or exports
 
 class Errors(Enum):
     UnknownError = auto() # unrecognized error
@@ -133,6 +134,8 @@ def update_meta_data(data, line):
         name = name_of_import(line)
         if name != "invalid":
             data.imports.append(name)
+        if data.type == FileType.PureCxx:
+            data.type = FileType.ExtraCxx
         else: Error(Errors.InvalidName, line)
         
     if line.find("export module ") != -1:
@@ -158,7 +161,7 @@ def get_meta_data(file):
     if file[file.rindex('.'):] == ".cppm":
         data.type = FileType.ModuleDefinition
     elif file[file.rindex('.'):] == ".cpp":
-        data.type = FileType.ExtraCxx
+        data.type = FileType.PureCxx
         data.name = file[file.rindex('/') + 1:file.rindex('.')]
     preambula_end = False
     is_comment_line = False
